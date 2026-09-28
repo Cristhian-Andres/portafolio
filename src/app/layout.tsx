@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
+import { GatekeeperProvider } from "@/components/gatekeeper/GatekeeperProvider";
 import { profile } from "@/data/profile";
 import "./globals.css";
 
@@ -27,7 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col font-sans">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
+          <GatekeeperProvider>{children}</GatekeeperProvider>
         </ThemeProvider>
       </body>
     </html>

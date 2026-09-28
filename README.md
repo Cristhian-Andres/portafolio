@@ -1,19 +1,41 @@
-# Challenge ONE Front-End Sprint 01: de Figma a HTML y CSS
+# Portafolio — Cristhian Andrés Luna Navarro
 
-En esta sprint se realizo un Portafolio para que puedas mostrar tus proyectos a posibles reclutadores.
+Portafolio personal construido con **Next.js (App Router) + TypeScript + Tailwind CSS v4**, con animaciones de scroll (Framer Motion), un elemento 3D en el Hero (React Three Fiber + drei) y un gag de entrada: un modal con un gato que pregunta si eres reclutador o solo curioso antes de mostrarte el perfil completo.
 
-- Sitio web responsivo realizado con HTML CSS y JavaScript
-- Desplazamiento suave en cada sección.
-- Incluye un modo claro y oscuro.
-- Desarrollado primero con la metodología Mobile First, luego para escritorio.
-- Compatible con todos los dispositivos móviles y con una interfaz de usuario hermosa y agradable.
+## Stack
 
-## Capturas de pantalla
+- **Next.js 16** (App Router, Turbopack)
+- **Tailwind CSS v4** (tokens de color en `src/app/globals.css`, dark mode por clase)
+- **next-themes** para el toggle de tema claro/oscuro
+- **Framer Motion** para el scroll-reveal de texto, el timeline animado de experiencia y las transiciones del modal
+- **@react-three/fiber + @react-three/drei** para el blob 3D del Hero
+- **zustand** (con persistencia en `sessionStorage`) para el estado del modal "gatekeeper"
+- **lucide-react** + iconos de marca hechos a mano (GitHub/LinkedIn/Instagram)
 
-<img width="946" alt="portafolio" src="https://user-images.githubusercontent.com/94796234/196014046-c9b82d2b-2714-4f45-98cc-a2ea6443f759.PNG">
+## Editar el contenido
 
-## Agradecimientos
+Todo el contenido (perfil, experiencia, skills, educación y proyectos académicos) vive en `src/data/*.ts`, tipado desde `src/types/cv.ts`. Para actualizar el CV, edita esos archivos — no hace falta tocar los componentes.
 
-💙 Alura, Oracle, OralceNExtEducation  
-💙 Canal  https://www.youtube.com/c/Bedimcode
+- `src/data/profile.ts` — nombre, rol, contacto, redes sociales, CV en PDF
+- `src/data/experience.ts` — experiencia laboral (timeline animado)
+- `src/data/skills.ts` — categorías de skills técnicas
+- `src/data/education.ts` — formación académica
+- `src/data/projects.ts` — proyectos de formación ("Primeros pasos")
 
+El gif del gato por defecto está en `src/lib/constants.ts` (`CAT_GIF_URL`) — reemplázalo por cualquier URL directa de `.gif` que prefieras.
+
+## Desarrollo local
+
+```bash
+npm install
+npm run dev
+```
+
+Abre [http://localhost:3000](http://localhost:3000).
+
+## Build de producción
+
+```bash
+npm run build
+npm run start
+```
