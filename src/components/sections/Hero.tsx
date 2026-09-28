@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Mail } from "lucide-react";
 import { profile } from "@/data/profile";
 import { Button } from "@/components/ui/Button";
+import { HeroSceneLoader } from "@/components/sections/HeroSceneLoader";
 
 export function Hero() {
   return (
@@ -32,6 +33,9 @@ export function Hero() {
 
         <div className="relative order-1 mx-auto aspect-square w-full max-w-sm md:order-2">
           <div className="absolute inset-0 rounded-full bg-accent/20 blur-3xl" />
+          <div className="absolute -inset-[20%]">
+            <HeroSceneLoader />
+          </div>
           <div className="relative h-full w-full overflow-hidden rounded-full border border-border bg-surface">
             <Image
               src={profile.photoSrc}
