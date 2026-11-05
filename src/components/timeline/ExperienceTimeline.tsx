@@ -30,11 +30,13 @@ export function ExperienceTimeline() {
         />
       </svg>
 
-      <div className="relative flex flex-col gap-16 md:gap-20">
+      <ol className="relative flex flex-col gap-16 md:gap-20">
         {experience.map((item, index) => (
-          <TimelineNode key={item.id} experience={item} index={index} />
+          <li key={item.id}>
+            <TimelineNode experience={item} index={index} />
+          </li>
         ))}
-      </div>
+      </ol>
     </div>
   );
 }

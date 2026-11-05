@@ -1,6 +1,7 @@
 "use client";
 
-import { Mail, MapPin, Phone } from "lucide-react";
+import { useState } from "react";
+import { Check, Copy, Mail, MapPin, Phone } from "lucide-react";
 import type { FormEvent } from "react";
 import { profile } from "@/data/profile";
 import { SectionHeading } from "@/components/ui/SectionHeading";
@@ -12,25 +13,46 @@ const CONTACT_INFO = [
   { icon: MapPin, label: "Ubicación", value: profile.location },
 ];
 
+const FIELD =
+  "mt-1 w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-accent";
+
+export function buildMailto(name: string, senderEmail: string, message: string) {
+  const subject = encodeURIComponent(`Nuevo contacto desde el portafolio — ${name}`);
+  const body = encodeURIComponent(`${message}\n\n— ${name} (${senderEmail})`);
+  return `mailto:${profile.contactEmail}?subject=${subject}&body=${body}`;
+}
+
 export function Contact() {
+  const [status, setStatus] = useState<"idle" | "sent">("idle");
+  const [copied, setCopied] = useState(false);
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const name = formData.get("name")?.toString() ?? "";
-    const senderEmail = formData.get("email")?.toString() ?? "";
-    const message = formData.get("message")?.toString() ?? "";
+    const data = new FormData(event.currentTarget);
+    const href = buildMailto(
+      String(data.get("name") ?? ""),
+      String(data.get("email") ?? ""),
+      String(data.get("message") ?? "")
+    );
+    window.location.href = href;
+    setStatus("sent");
+  }
 
-    const subject = encodeURIComponent(`Nuevo contacto desde el portafolio — ${name}`);
-    const body = encodeURIComponent(`${message}\n\n— ${name} (${senderEmail})`);
-
-    window.location.href = `mailto:${profile.contactEmail}?subject=${subject}&body=${body}`;
+  async function copyEmail() {
+    try {
+      await navigator.clipboard.writeText(profile.contactEmail);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
   }
 
   return (
     <section id="contact" className="border-t border-border py-24">
       <div className="mx-auto grid max-w-5xl gap-12 px-6 md:grid-cols-2">
         <div>
-          <SectionHeading eyebrow="Escríbeme" title="Contáctame" />
+          <SectionHeading eyebrow="Escríbeme" title="Contáctame" align="left" />
 
           <div className="space-y-4">
             {CONTACT_INFO.map(({ icon: Icon, label, value }) => (
@@ -45,6 +67,15 @@ export function Contact() {
               </div>
             ))}
           </div>
+
+          <button
+            type="button"
+            onClick={copyEmail}
+            className="mt-6 inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-foreground transition-colors hover:border-accent hover:text-accent"
+          >
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            <span aria-live="polite">{copied ? "Correo copiado" : "Copiar mi correo"}</span>
+          </button>
         </div>
 
         <FadeInWhenVisible>
@@ -53,47 +84,34 @@ export function Contact() {
               <label htmlFor="name" className="text-sm font-medium text-foreground">
                 Nombre
               </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                required
-                className="mt-1 w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-foreground outline-none focus:border-accent"
-              />
+              <input id="name" name="name" type="text" required autoComplete="name" className={FIELD} />
             </div>
 
             <div>
               <label htmlFor="email" className="text-sm font-medium text-foreground">
                 Tu correo
               </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                className="mt-1 w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-foreground outline-none focus:border-accent"
-              />
+              <input id="email" name="email" type="email" required autoComplete="email" className={FIELD} />
             </div>
 
             <div>
               <label htmlFor="message" className="text-sm font-medium text-foreground">
                 Mensaje
               </label>
-              <textarea
-                id="message"
-                name="message"
-                rows={4}
-                required
-                className="mt-1 w-full rounded-xl border border-border bg-surface px-4 py-2.5 text-sm text-foreground outline-none focus:border-accent"
-              />
+              <textarea id="message" name="message" rows={4} required className={FIELD} />
             </div>
 
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent-strong"
+              className="inline-flex items-center gap-2 rounded-full bg-accent-solid px-5 py-2.5 text-sm font-medium text-on-accent shadow-lg shadow-accent-solid/25 transition-all hover:-translate-y-0.5 hover:bg-accent-solid-hover"
             >
               Enviar <Mail className="h-4 w-4" />
             </button>
+
+            <p role="status" className="min-h-5 text-xs text-muted">
+              {status === "sent" &&
+                "Se abrió tu aplicación de correo. Si no ocurrió nada, usa «Copiar mi correo»."}
+            </p>
           </form>
         </FadeInWhenVisible>
       </div>

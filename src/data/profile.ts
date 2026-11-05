@@ -6,9 +6,17 @@ export const profile: Profile = {
   location: "Popayán, Cauca, Colombia",
   phone: "+57 324 587 9364",
   contactEmail: "cral2204@gmail.com",
+  tagline:
+    "Transformo datos en decisiones y automatizo procesos con IA y nuevas tecnologías, para que tu negocio avance más rápido.",
+  roles: [
+    "Analytics Engineer",
+    "Automatizador de procesos con IA",
+    "Arquitecto de Data Warehouses",
+    "Habilitador de Self-Service BI",
+  ],
   summary:
     "Analytics Engineer y Tecnólogo en Desarrollo de Software con más de 5 años de experiencia diseñando, construyendo y optimizando arquitecturas de datos, data warehouses y modelos de datos analíticos en el sector tecnológico. Especializado en transformar datos crudos de múltiples fuentes en capas estructuradas (dimensionales y métricas de negocio) mediante SQL/Python avanzado, BigQuery y AWS Redshift. Experiencia contrastada en gobernanza de datos, garantía de calidad de métricas, optimización de pipelines de transformación y habilitación de self-service BI con Power BI y QuickSight para decisiones basadas en evidencia.",
-  photoSrc: "/perfil.png",
+  photoSrc: "/foto-perfil.webp",
   cvUrl: "/cv-cristhian-luna.pdf",
   socialLinks: [
     { label: "LinkedIn", url: "https://www.linkedin.com/in/cristhian-lunaa/", icon: "linkedin" },

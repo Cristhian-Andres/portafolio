@@ -49,6 +49,8 @@ export interface Profile {
   location: string;
   phone: string;
   contactEmail: string;
+  tagline: string;
+  roles: string[];
   summary: string;
   photoSrc: string;
   cvUrl: string;

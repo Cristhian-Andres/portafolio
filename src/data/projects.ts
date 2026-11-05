@@ -8,7 +8,7 @@ export const projects: Project[] = [
       "Sistema de gestión médica desarrollado durante la formación de Tecnólogo en Análisis y Desarrollo de Sistemas de Información del SENA.",
     period: "SENA · 2021 — 2023",
     repoUrl: "https://github.com/Cristhian-Andres/consultorio-medico-MVC",
-    imageSrc: "/projects/consultorio-medico.png",
+    imageSrc: "/projects/consultorio-medico.webp",
     tags: ["MySQL", "PHP", "MVC"],
   },
   {
@@ -19,7 +19,7 @@ export const projects: Project[] = [
     period: "Alura · 2022",
     repoUrl: "https://github.com/Cristhian-Andres/Challenge-ONE-Encriptador-de-Texto",
     demoUrl: "https://cristhian-andres.github.io/Challenge-ONE-Encriptador-de-Texto/",
-    imageSrc: "/projects/encriptador-texto.png",
+    imageSrc: "/projects/encriptador-texto.webp",
     tags: ["JavaScript"],
   },
   {
@@ -29,7 +29,7 @@ export const projects: Project[] = [
       "Aplicación que, a partir de una función matemática compleja, modela con Series de Fourier su comportamiento al variar sus armónicos.",
     period: "Universidad del Cauca · Ingeniería Automática Industrial",
     repoUrl: "https://github.com/Cristhian-Andres/Series-Fourier-PIAI",
-    imageSrc: "/projects/series-fourier.png",
+    imageSrc: "/projects/series-fourier.webp",
     tags: ["Python", "Matemáticas aplicadas"],
   },
   {
@@ -39,7 +39,7 @@ export const projects: Project[] = [
       "Simulador con interfaz de usuario para un intercambiador de calor a contracorriente, donde un fluido caliente transfiere energía térmica a un fluido frío en dirección opuesta.",
     period: "Universidad del Cauca · Ingeniería Automática Industrial",
     repoUrl: "https://github.com/Cristhian-Andres/Intercambiador-Calor-Contracorriente-PIAI",
-    imageSrc: "/projects/intercambiador-calor.png",
+    imageSrc: "/projects/intercambiador-calor.webp",
     tags: ["Python", "Simulación"],
   },
 ];

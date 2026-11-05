@@ -42,8 +42,8 @@ export function TimelineNode({
         <p className="text-sm text-muted">{experience.company}</p>
 
         <ul className="mt-4 space-y-2 text-sm text-muted">
-          {experience.bullets.map((bullet) => (
-            <li key={bullet.slice(0, 24)}>{bullet}</li>
+          {experience.bullets.map((bullet, i) => (
+            <li key={i}>{bullet}</li>
           ))}
         </ul>
 

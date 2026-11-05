@@ -19,10 +19,11 @@ export function RevealText({
   }
 
   return (
-    <p className={className}>
+    <p className={className} aria-label={text}>
       {words.map((word, index) => (
         <motion.span
-          key={`${word}-${index}`}
+          key={`${index}-${word}`}
+          aria-hidden="true"
           className="mr-[0.28em] inline-block"
           initial={{ opacity: 0, y: "0.35em", filter: "blur(4px)" }}
           whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}

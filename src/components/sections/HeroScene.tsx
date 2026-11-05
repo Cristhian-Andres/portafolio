@@ -4,24 +4,17 @@ import { useReducedMotion } from "framer-motion";
 import { useTheme } from "next-themes";
 import { HeroBlob } from "@/components/three/HeroBlob";
 
-const ACCENT_BY_THEME = {
-  light: "#16a34a",
-  dark: "#4ade80",
+const COLORS = {
+  light: { main: "#84cc16", accent2: "#14b8a6" },
+  dark: { main: "#a3e635", accent2: "#2dd4bf" },
 };
 
 export function HeroScene() {
   const shouldReduceMotion = useReducedMotion();
   const { resolvedTheme } = useTheme();
 
-  if (shouldReduceMotion) {
-    return null;
-  }
+  if (shouldReduceMotion) return null;
 
-  const color = resolvedTheme === "dark" ? ACCENT_BY_THEME.dark : ACCENT_BY_THEME.light;
-
-  return (
-    <div className="absolute inset-0">
-      <HeroBlob color={color} />
-    </div>
-  );
+  const palette = resolvedTheme === "light" ? COLORS.light : COLORS.dark;
+  return <HeroBlob color={palette.main} accent2={palette.accent2} />;
 }

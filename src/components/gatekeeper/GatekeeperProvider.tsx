@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useGatekeeperStore } from "./useGatekeeperStore";
 import { useHasHydrated } from "./useHasHydrated";
+import { useIsDesktop } from "./useIsDesktop";
 import { RecruiterModal } from "./RecruiterModal";
 import { SplitScreenPanel } from "./SplitScreenPanel";
 import { FloatingCatPill } from "./FloatingCatPill";
@@ -16,33 +17,41 @@ export function GatekeeperProvider({ children }: { children: ReactNode }) {
   const isExpanded = useGatekeeperStore((state) => state.isExpanded);
 
   const showModal = hasHydrated && !hasAnswered;
-  const gated = hasHydrated && hasAnswered && !isExpanded;
+  const isDesktop = useIsDesktop();
+  // En escritorio hay panel lateral; en móvil solo la píldora, para no tapar el Hero.
+  const docked = hasHydrated && hasAnswered && !isExpanded && isDesktop;
+  const showPill = hasHydrated && hasAnswered && (isExpanded || !isDesktop);
 
+  // Al cerrarse el modal el foco debe volver al contenido, no perderse.
+  const wasModalOpen = useRef(false);
   useEffect(() => {
-    document.body.style.overflow = showModal || gated ? "hidden" : "";
+    if (wasModalOpen.current && !showModal) document.getElementById("main")?.focus({ preventScroll: true });
+    wasModalOpen.current = showModal;
+  }, [showModal]);
+
+  // Solo se bloquea el scroll mientras el modal está abierto.
+  useEffect(() => {
+    document.body.style.overflow = showModal ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [showModal, gated]);
+  }, [showModal]);
 
   return (
     <div className="relative">
+      {/* El contenido siempre está en el HTML; `inert` lo saca del foco mientras el modal está abierto. */}
       <div
+        inert={showModal}
         className={cn(
-          "min-h-screen",
-          (showModal || gated) && "h-screen overflow-hidden blur-sm",
-          gated && "md:pr-[380px]"
+          "transition-[padding] duration-500",
+          docked && "md:pr-[380px]"
         )}
       >
         {children}
       </div>
 
-      {gated && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-background to-transparent md:right-[380px]" />
-      )}
-
-      {gated && <SplitScreenPanel />}
-      {hasHydrated && isExpanded && <FloatingCatPill />}
+      {docked && <SplitScreenPanel />}
+      {showPill && <FloatingCatPill />}
 
       <AnimatePresence>{showModal && <RecruiterModal />}</AnimatePresence>
     </div>

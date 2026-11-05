@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -16,37 +15,28 @@ export function Button({
   children,
   ...props
 }: ButtonProps) {
-  const isExternal = href.startsWith("http") || href.startsWith("mailto:");
+  const isHttp = href.startsWith("http");
 
   const styles = cn(
     "inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all",
     variant === "primary" &&
-      "bg-accent text-white shadow-sm hover:bg-accent-strong",
+      "bg-accent-solid text-on-accent shadow-lg shadow-accent-solid/25 hover:-translate-y-0.5 hover:bg-accent-solid-hover",
     variant === "outline" &&
-      "border border-border text-foreground hover:border-accent hover:text-accent",
+      "border border-border text-foreground hover:-translate-y-0.5 hover:border-accent hover:text-accent",
     variant === "ghost" && "text-foreground hover:text-accent",
     className
   );
 
-  if (isExternal) {
-    return (
-      <a
-        href={href}
-        target={href.startsWith("http") ? "_blank" : undefined}
-        rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
-        className={styles}
-        {...props}
-      >
-        {children}
-        {icon}
-      </a>
-    );
-  }
-
   return (
-    <Link href={href} className={styles}>
+    <a
+      href={href}
+      target={isHttp ? "_blank" : undefined}
+      rel={isHttp ? "noopener noreferrer" : undefined}
+      className={styles}
+      {...props}
+    >
       {children}
       {icon}
-    </Link>
+    </a>
   );
 }

@@ -2,26 +2,38 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Paleta "verde lima": lima eléctrico + teal sobre tinta verdosa.
+   Sobre el lima el texto es oscuro (--on-accent) para mantener el contraste. */
 :root {
-  --background: hsl(150 60% 99%);
-  --surface: hsl(150 70% 96%);
-  --border: hsl(150 12% 88%);
-  --foreground: hsl(150 8% 15%);
-  --muted: hsl(150 8% 45%);
-  --accent: hsl(142 69% 45%);
-  --accent-strong: hsl(142 57% 38%);
-  --accent-soft: hsl(142 92% 90%);
+  color-scheme: light;
+  --background: #fafdf2;
+  --surface: #f1f8e2;
+  --border: #d6e6b8;
+  --foreground: #121908;
+  --muted: #52604a;
+  --accent: #3f6212;
+  --accent-2: #0f766e;
+  --accent-solid: #84cc16;
+  --accent-solid-hover: #65a30d;
+  --on-accent: #0f1a03;
+  --accent-soft: #e6f7c4;
+  --glow: rgba(132, 204, 22, 0.28);
 }
 
 .dark {
-  --background: hsl(150 28% 8%);
-  --surface: hsl(150 26% 12%);
-  --border: hsl(150 20% 20%);
-  --foreground: hsl(150 8% 95%);
-  --muted: hsl(150 8% 70%);
-  --accent: hsl(142 65% 55%);
-  --accent-strong: hsl(142 70% 65%);
-  --accent-soft: hsl(150 25% 18%);
+  color-scheme: dark;
+  --background: #070a05;
+  --surface: #0f150b;
+  --border: #223019;
+  --foreground: #f6fbee;
+  --muted: #a9b39a;
+  --accent: #a3e635;
+  --accent-2: #2dd4bf;
+  --accent-solid: #a3e635;
+  --accent-solid-hover: #bef264;
+  --on-accent: #0a1200;
+  --accent-soft: #1a2610;
+  --glow: rgba(163, 230, 53, 0.3);
 }
 
 @theme inline {
@@ -31,9 +43,13 @@
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
-  --color-accent-strong: var(--accent-strong);
+  --color-accent-2: var(--accent-2);
+  --color-accent-solid: var(--accent-solid);
+  --color-accent-solid-hover: var(--accent-solid-hover);
+  --color-on-accent: var(--on-accent);
   --color-accent-soft: var(--accent-soft);
   --font-sans: var(--font-poppins);
+  --font-mono: var(--font-mono);
 }
 
 html {
@@ -47,12 +63,49 @@ body {
 }
 
 ::selection {
-  background: var(--accent);
-  color: white;
+  background: var(--accent-solid);
+  color: var(--on-accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 3px;
+  border-radius: 0.5rem;
+}
+
+.gradient-text {
+  background-image: linear-gradient(100deg, var(--accent) 10%, var(--accent-2) 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--border) 60%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--border) 60%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 30%, transparent 100%);
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 40s linear infinite;
+}
+
+.marquee:hover .animate-marquee {
+  animation-play-state: paused;
 }
 
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+  .animate-marquee {
+    animation: none;
   }
 }

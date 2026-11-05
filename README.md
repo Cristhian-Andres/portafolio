@@ -39,3 +39,23 @@ Abre [http://localhost:3000](http://localhost:3000).
 npm run build
 npm run start
 ```
+
+## Tests
+
+```bash
+npm test            # unitarios y de componentes (Vitest + Testing Library)
+npm run test:e2e    # navegador real, escritorio y móvil (Playwright; construye y levanta el sitio)
+npm run typecheck && npm run lint
+```
+
+La primera vez: `npx playwright install chromium`. El workflow `.github/workflows/ci.yml` corre todo en cada push.
+
+## Despliegue
+
+Importa el repo en Vercel (detecta Next.js solo). Define `NEXT_PUBLIC_SITE_URL` con tu dominio final para que
+el sitemap, `robots.txt`, la imagen Open Graph y el JSON-LD apunten a la URL correcta.
+
+## Paleta
+
+Los colores viven como variables en `src/app/globals.css` (`:root` para claro, `.dark` para oscuro). Cambiar
+`--accent`, `--accent-2` y `--accent-solid` re-tiñe todo el sitio, incluido el blob 3D (`HeroScene.tsx`).
