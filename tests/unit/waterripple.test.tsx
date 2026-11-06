@@ -8,6 +8,9 @@ vi.mock("framer-motion", async (importOriginal) => {
   return { ...actual, useReducedMotion: () => motionPrefs.reduced };
 });
 
+/** Lo que la estela pinta (grosor y color de cada tramo) y las curvas que traza. */
+const drawn = { widths: [] as number[], styles: [] as string[], frameStarts: [] as number[] };
+
 const ctx = {
   createImageData: vi.fn((w: number, h: number) => ({
     width: w,
@@ -15,8 +18,35 @@ const ctx = {
     data: new Uint8ClampedArray(w * h * 4),
   })),
   putImageData: vi.fn(),
-  clearRect: vi.fn(),
+  // cada cuadro de la estela empieza limpiando el lienzo: se anota dónde empieza para aislarlo
+  clearRect: vi.fn(() => {
+    drawn.frameStarts.push(drawn.widths.length);
+  }),
+  // dibujo de la estela (línea fina)
+  setTransform: vi.fn(),
+  beginPath: vi.fn(),
+  moveTo: vi.fn(),
+  quadraticCurveTo: vi.fn(),
+  stroke: vi.fn(),
+  lineCap: "butt",
+  lineJoin: "miter",
+  set lineWidth(value: number) {
+    drawn.widths.push(value);
+  },
+  set strokeStyle(value: string) {
+    drawn.styles.push(value);
+  },
 };
+
+/** Reinicia los espías del canvas simulado (ignora las propiedades que no son funciones). */
+function resetCtx() {
+  drawn.widths.length = 0;
+  drawn.styles.length = 0;
+  drawn.frameStarts.length = 0;
+  for (const value of Object.values(ctx)) {
+    if (typeof value === "function" && "mockClear" in value) (value as { mockClear: () => void }).mockClear();
+  }
+}
 
 const canvas = () => screen.getByTestId("water-ripple") as HTMLCanvasElement;
 const state = () => canvas().dataset.state;
@@ -53,7 +83,7 @@ beforeEach(() => {
     toFake: ["requestAnimationFrame", "cancelAnimationFrame", "setTimeout", "performance"],
   });
   motionPrefs.reduced = false;
-  Object.values(ctx).forEach((fn) => fn.mockClear());
+  resetCtx();
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
     ctx as unknown as CanvasRenderingContext2D
   );
@@ -121,7 +151,7 @@ describe("WaterRipple: mouse", () => {
     // otra instancia limpia para el clic
     const second = render(<WaterRipple />);
     second.unmount();
-    Object.values(ctx).forEach((fn) => fn.mockClear());
+    resetCtx();
     render(<WaterRipple />);
     pointer("pointerdown", 300, 300);
     frames(2);
@@ -526,5 +556,223 @@ describe("WaterRipple: la marca es LOCAL, solo donde toca el puntero o el dedo",
     const draws = ctx.putImageData.mock.calls.length;
     frames(30);
     expect(ctx.putImageData.mock.calls.length).toBe(draws); // quieto = nada
+  });
+});
+
+describe("WaterRipple: estela de barco (línea fina por donde pasa el puntero)", () => {
+  const wakeCanvas = () => screen.getByTestId("water-wake") as HTMLCanvasElement;
+
+  /** Mueve el mouse en línea recta, un paso por cuadro (≈ 16 ms), como una persona. */
+  function sweep(x0: number, y0: number, x1: number, y1: number, steps = 14) {
+    pointer("pointermove", x0, y0);
+    for (let i = 1; i <= steps; i++) {
+      frames(1);
+      pointer("pointermove", x0 + ((x1 - x0) * i) / steps, y0 + ((y1 - y0) * i) / steps);
+    }
+    frames(1);
+  }
+
+  /** Cada tramo dibujado: [x0,y0] → control → [x1,y1]. */
+  function drawnSegments() {
+    const moves = ctx.moveTo.mock.calls as number[][];
+    const curves = ctx.quadraticCurveTo.mock.calls as number[][];
+    return curves.map((c, i) => ({ x0: moves[i][0], y0: moves[i][1], cx: c[0], cy: c[1], x1: c[2], y1: c[3] }));
+  }
+
+  it("tiene su propio lienzo: decorativo, sin capturar clics y por encima de todo", () => {
+    render(<WaterRipple />);
+    expect(wakeCanvas()).toHaveAttribute("aria-hidden", "true");
+    expect(wakeCanvas().className).toContain("pointer-events-none");
+    expect(wakeCanvas().className).toContain("fixed");
+    expect(wakeCanvas().className).toContain("z-[62]");
+    expect(wakeCanvas().dataset.live).toBe("false");
+  });
+
+  it("se dibuja a la resolución de la pantalla (nítida), con un tope de 2×", () => {
+    Object.defineProperty(window, "devicePixelRatio", { value: 2, configurable: true });
+    const { unmount } = render(<WaterRipple />);
+    expect(wakeCanvas().width).toBe(1200 * 2);
+    expect(wakeCanvas().height).toBe(800 * 2);
+    expect(ctx.setTransform).toHaveBeenCalledWith(2, 0, 0, 2, 0, 0);
+    unmount();
+
+    Object.defineProperty(window, "devicePixelRatio", { value: 3, configurable: true });
+    render(<WaterRipple />);
+    expect(wakeCanvas().width).toBe(1200 * 2); // 3× se limita a 2×
+    Object.defineProperty(window, "devicePixelRatio", { value: 1, configurable: true });
+  });
+
+  it("al mover el mouse dibuja la línea y la marca como viva", () => {
+    render(<WaterRipple />);
+    sweep(200, 300, 600, 300);
+    expect(ctx.beginPath).toHaveBeenCalled();
+    expect(ctx.quadraticCurveTo).toHaveBeenCalled();
+    expect(ctx.stroke).toHaveBeenCalled();
+    expect(wakeCanvas().dataset.live).toBe("true");
+  });
+
+  it("es BLANCA sobre fondo oscuro", () => {
+    document.documentElement.classList.add("dark");
+    render(<WaterRipple />);
+    sweep(200, 300, 600, 300);
+    expect(drawn.styles.length).toBeGreaterThan(3);
+    for (const style of drawn.styles) expect(style).toMatch(/^rgba\(255,255,255,/);
+  });
+
+  it("es NEGRA sobre fondo claro", () => {
+    document.documentElement.classList.remove("dark");
+    render(<WaterRipple />);
+    sweep(200, 300, 600, 300);
+    expect(drawn.styles.length).toBeGreaterThan(3);
+    for (const style of drawn.styles) expect(style).toMatch(/^rgba\(0,0,0,/);
+  });
+
+  it("sobre la introducción (siempre blanca) es NEGRA aunque el sitio esté en oscuro", () => {
+    document.documentElement.classList.add("dark");
+    const gate = document.createElement("div");
+    gate.setAttribute("data-intro-gate", "");
+    document.body.appendChild(gate);
+    render(<WaterRipple />);
+    sweep(200, 300, 600, 300);
+    for (const style of drawn.styles) expect(style).toMatch(/^rgba\(0,0,0,/);
+    gate.remove();
+  });
+
+  it("es fina y sutil: grosor ≤ 2,2 px y opacidad ≤ 0,45", () => {
+    render(<WaterRipple />);
+    sweep(100, 300, 700, 340, 20);
+    expect(drawn.widths.length).toBeGreaterThan(5);
+    for (const width of drawn.widths) {
+      expect(width).toBeLessThanOrEqual(2.2 + 1e-9);
+      expect(width).toBeGreaterThan(0);
+    }
+    for (const style of drawn.styles) {
+      const alpha = Number(/,([0-9.]+)\)$/.exec(style)![1]);
+      expect(alpha).toBeLessThanOrEqual(0.45 + 1e-9);
+      expect(alpha).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("se afina hacia atrás: la cabeza (junto al puntero) es más gruesa que la cola", () => {
+    render(<WaterRipple />);
+    sweep(100, 300, 700, 300, 24);
+    // el último cuadro dibujado va de la cola a la cabeza: se aísla desde su último «limpiar lienzo»
+    const group = drawn.widths.slice(drawn.frameStarts[drawn.frameStarts.length - 1]);
+    expect(group.length).toBeGreaterThan(5);
+    expect(group[group.length - 1]).toBeGreaterThan(group[0] * 1.5);
+    for (let i = 1; i < group.length; i++) expect(group[i]).toBeGreaterThanOrEqual(group[i - 1] - 1e-9);
+  });
+
+  it("va solo por el recorrido: ningún tramo se sale del camino que hizo el puntero", () => {
+    render(<WaterRipple />);
+    sweep(200, 300, 600, 300);
+    for (const s of drawnSegments()) {
+      for (const [x, y] of [[s.x0, s.y0], [s.x1, s.y1]]) {
+        expect(x).toBeGreaterThanOrEqual(190);
+        expect(x).toBeLessThanOrEqual(610);
+        expect(Math.abs(y - 300)).toBeLessThan(8); // pegada a la trayectoria
+      }
+    }
+  });
+
+  it("marca la dirección: el extremo más reciente queda donde está el puntero", () => {
+    render(<WaterRipple />);
+    sweep(200, 300, 600, 300);
+    const segments = drawnSegments();
+    const head = segments[segments.length - 1];
+    expect(head.x1).toBeGreaterThan(560);
+    expect(head.x1).toBeLessThanOrEqual(600);
+  });
+
+  it("un clic o toque suelto NO deja línea (solo la marca de agua)", () => {
+    render(<WaterRipple />);
+    pointer("pointerdown", 400, 300);
+    frames(5);
+    expect(ctx.quadraticCurveTo).not.toHaveBeenCalled();
+    expect(wakeCanvas().dataset.live).toBe("false");
+
+    touch("touchstart", 200, 500);
+    frames(5);
+    expect(ctx.quadraticCurveTo).not.toHaveBeenCalled();
+  });
+
+  it("también con el dedo: arrastrar deja la línea", () => {
+    render(<WaterRipple />);
+    touch("touchstart", 100, 400);
+    for (let i = 1; i <= 12; i++) {
+      frames(1);
+      touch("touchmove", 100 + i * 22, 400 + i * 4);
+    }
+    frames(1);
+    expect(ctx.quadraticCurveTo).toHaveBeenCalled();
+    expect(wakeCanvas().dataset.live).toBe("true");
+  });
+
+  it("al soltar el dedo el siguiente trazo no se une con el anterior", () => {
+    render(<WaterRipple />);
+    touch("touchstart", 100, 200);
+    for (let i = 1; i <= 8; i++) {
+      frames(1);
+      touch("touchmove", 100 + i * 20, 200);
+    }
+    touch("touchend");
+    resetCtx();
+    frames(1);
+    touch("touchstart", 100, 500);
+    for (let i = 1; i <= 8; i++) {
+      frames(1);
+      touch("touchmove", 100 + i * 20, 500);
+    }
+    frames(1);
+    for (const s of drawnSegments()) expect(Math.abs(s.y1 - s.y0)).toBeLessThan(40); // ninguna línea une y=200 con y=500
+  });
+
+  it("se desvanece sola en menos de un segundo y deja el lienzo limpio", () => {
+    render(<WaterRipple />);
+    sweep(200, 300, 600, 300);
+    expect(wakeCanvas().dataset.live).toBe("true");
+    frames(70); // ~1,2 s sin mover
+    expect(wakeCanvas().dataset.live).toBe("false");
+    expect(canvas().dataset.state).toBe("idle");
+    const strokes = ctx.stroke.mock.calls.length;
+    frames(20);
+    expect(ctx.stroke.mock.calls.length).toBe(strokes); // dormido: no dibuja nada más
+  });
+
+  it("la línea sigue viva aunque la deformación ya se haya calmado, y no mantiene el filtro encendido", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+    );
+    vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue("data:image/png;base64,MAPA");
+    render(<WaterRipple />);
+    sweep(200, 300, 260, 300, 4); // un trazo corto: la deformación casi no existe
+    pointer("pointermove", 262, 300);
+    // mientras pasa el tiempo, el filtro se retira apenas la deformación termina…
+    let filterOffAt = -1;
+    let wakeOffAt = -1;
+    for (let f = 0; f < 120; f++) {
+      frames(1);
+      const filterOn = screen.getByTestId("water-lens").style.backdropFilter.includes("water-ripple-filter");
+      if (!filterOn && filterOffAt < 0) filterOffAt = f;
+      if (wakeCanvas().dataset.live === "false" && wakeOffAt < 0) wakeOffAt = f;
+    }
+    expect(filterOffAt).toBeGreaterThanOrEqual(0);
+    expect(wakeOffAt).toBeGreaterThan(0);
+    expect(canvas().dataset.state).toBe("idle");
+  });
+
+  it("al ocultar la pestaña se borra la estela", () => {
+    render(<WaterRipple />);
+    sweep(200, 300, 600, 300);
+    Object.defineProperty(document, "hidden", { value: true, configurable: true });
+    act(() => void document.dispatchEvent(new Event("visibilitychange")));
+    expect(wakeCanvas().dataset.live).toBe("false");
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+  });
+
+  it("con «reducir movimiento» no existe la línea", () => {
+    motionPrefs.reduced = true;
+    render(<WaterRipple />);
+    expect(screen.queryByTestId("water-wake")).toBeNull();
   });
 });
