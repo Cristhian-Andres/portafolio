@@ -3,9 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Button } from "@/components/ui/Button";
 import { Header, NAV_LINKS } from "@/components/layout/Header";
-import { Contact, buildMailto } from "@/components/sections/Contact";
-import { RecruiterModal } from "@/components/gatekeeper/RecruiterModal";
-import { useGatekeeperStore } from "@/components/gatekeeper/useGatekeeperStore";
+import { Contact } from "@/components/sections/Contact";
 import { profile } from "@/data/profile";
 
 vi.mock("next-themes", () => ({
@@ -57,11 +55,21 @@ describe("Header", () => {
 });
 
 describe("Contact", () => {
-  it("construye un mailto con asunto y cuerpo codificados", () => {
-    const href = buildMailto("Ana", "ana@x.com", "Hola & bienvenido");
-    expect(href.startsWith(`mailto:${profile.contactEmail}?subject=`)).toBe(true);
-    expect(href).toContain(encodeURIComponent("Hola & bienvenido"));
-    expect(href).toContain(encodeURIComponent("ana@x.com"));
+  it("ya no tiene formulario: solo el botón Escríbeme hacia Gmail", () => {
+    const { container } = render(<Contact />);
+    expect(container.querySelector("form")).toBeNull();
+    expect(container.querySelector("input, textarea")).toBeNull();
+    const link = screen.getByRole("link", { name: /escríbeme/i });
+    expect(link).toHaveAttribute("href", expect.stringContaining("https://mail.google.com/mail/"));
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("no muestra teléfono y sí el correo y la ubicación", () => {
+    render(<Contact />);
+    expect(screen.queryByText(/teléfono/i)).not.toBeInTheDocument();
+    expect(screen.getByText(profile.contactEmail)).toBeInTheDocument();
+    expect(screen.getByText(profile.location)).toBeInTheDocument();
   });
 
   it("copia el correo al portapapeles y lo confirma", async () => {
@@ -70,50 +78,5 @@ describe("Contact", () => {
     await user.click(screen.getByRole("button", { name: /copiar mi correo/i }));
     expect(await screen.findByText("Correo copiado")).toBeInTheDocument();
     expect(await navigator.clipboard.readText()).toBe(profile.contactEmail);
-  });
-});
-
-describe("RecruiterModal", () => {
-  it("es un dialog accesible con foco inicial", () => {
-    render(<RecruiterModal />);
-    const dialog = screen.getByRole("dialog");
-    expect(dialog).toHaveAttribute("aria-modal", "true");
-    expect(dialog).toHaveAccessibleName(/antes de seguir/i);
-    expect(screen.getByRole("button", { name: /reclutador/i })).toHaveFocus();
-  });
-
-  it("registra la audiencia elegida", async () => {
-    useGatekeeperStore.setState({ hasAnswered: false, audience: null, isExpanded: false });
-    const user = userEvent.setup();
-    render(<RecruiterModal />);
-    await user.click(screen.getByRole("button", { name: /reclutador/i }));
-    expect(useGatekeeperStore.getState()).toMatchObject({
-      hasAnswered: true,
-      audience: "recruiter",
-    });
-  });
-
-  it("Escape lo cierra como visitante normal", async () => {
-    useGatekeeperStore.setState({ hasAnswered: false, audience: null, isExpanded: false });
-    const user = userEvent.setup();
-    render(<RecruiterModal />);
-    await user.keyboard("{Escape}");
-    expect(useGatekeeperStore.getState()).toMatchObject({
-      hasAnswered: true,
-      audience: "normal",
-    });
-  });
-
-  it("atrapa el foco con Tab entre los dos botones", async () => {
-    const user = userEvent.setup();
-    render(<RecruiterModal />);
-    const [first, second] = screen.getAllByRole("button");
-    expect(first).toHaveFocus();
-    await user.tab();
-    expect(second).toHaveFocus();
-    await user.tab();
-    expect(first).toHaveFocus();
-    await user.tab({ shift: true });
-    expect(second).toHaveFocus();
   });
 });
