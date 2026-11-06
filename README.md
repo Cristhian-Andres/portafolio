@@ -22,7 +22,63 @@ Todo el contenido (perfil, experiencia, skills, educación y proyectos académic
 - `src/data/education.ts` — formación académica
 - `src/data/projects.ts` — proyectos de formación ("Primeros pasos")
 
-El gif del gato por defecto está en `src/lib/constants.ts` (`CAT_GIF_URL`) — reemplázalo por cualquier URL directa de `.gif` que prefieras.
+
+## Introducción interactiva («¿Qué haces aquí?»)
+
+Al entrar, mi hoja de vida se «escribe» sola (con datos reales de `src/data/experience.ts`), se corta con tijeras
+mientras muestra «Cargando perfil…» con una barra de progreso (no hay botón para saltarla), y pregunta **¿Qué haces aquí?** con dos botones: **Soy reclutador** y **Ando de chismoso**. Cualquiera de los dos
+desbloquea todo: se envía el evento a Google Tag Manager, la página **se recarga** y se muestra el portafolio completo.
+Solo la recarga que ocurre justo después de pulsar un botón muestra todo directamente (margen de 10 s,
+`UNLOCK_GRACE_MS` en `src/lib/constants.ts`): **cualquier otra carga o recarga vuelve a mostrar la introducción**,
+así cada visita cuenta y puedes volver a verla siempre. Con «reducir movimiento» se salta la animación. La introducción es **siempre blanca**, aunque el sitio esté en modo oscuro.
+El código está en `src/components/gatekeeper/`.
+
+## Siempre desde el inicio
+
+El portafolio siempre empieza arriba: al cargar, recargar o volver a la pestaña no se restaura el scroll anterior y
+se quita cualquier `#ancla` de la URL. Un script en `<head>` desactiva la restauración del navegador antes de que
+actúe (`src/lib/scrollReset.ts`).
+
+## Medición con Google Tag Manager
+
+1. Crea un contenedor web en tagmanager.google.com y copia su ID (`GTM-XXXXXXX`).
+2. Defínelo como variable de entorno `NEXT_PUBLIC_GTM_ID` (ver `.env.example`; en Vercel: Settings → Environment Variables) y vuelve a desplegar.
+3. En GTM crea un **activador → Evento personalizado** por cada evento de la tabla (o uno con regex `^gate_`) y úsalo en una etiqueta de **Google Analytics: evento de GA4**.
+
+| Evento (`event`) | Cuándo se envía | Parámetros |
+| --- | --- | --- |
+| `gate_view` | Se muestra la introducción (una vez por carga) | `gate_step`, `page_path` |
+| `gate_recruiter_click` | Pulsa **Soy reclutador** | `audience: "recruiter"`, `gate_step` |
+| `gate_curious_click` | Pulsa **Ando de chismoso** | `audience: "curious"`, `gate_step` |
+| `gate_dismiss` | Cierra con Escape sin elegir | `audience: "unknown"` |
+
+Al pulsar un botón, la recarga espera a que GTM confirme el envío (`eventCallback`, con un máximo de ~1,2 s) para no perder el clic.
+Depurar: abre la consola del navegador y escribe `dataLayer`, o usa el modo **Vista previa** de GTM.
+Nota: la recarga cuenta una segunda visita de página (`page_view`) en GA4; para el embudo usa `gate_view` y los dos `*_click`.
+
+## Efecto de agua (huella local)
+
+Donde pasa el mouse (o el dedo en móvil) la superficie se hunde un instante y **deforma suavemente lo que hay
+debajo** (letras, tarjetas, imágenes), como si dejara una marca en el agua; la marca se relaja y desaparece en
+~1 s. **Es local:** solo afecta al sitio por donde se pasa; no viajan ondas por la pantalla. Un clic o toque deja
+una marca algo mayor. Si el puntero se queda quieto, no pasa nada.
+
+- **Chrome, Edge, Opera y Chrome de Android** (motor Chromium): refracción real con un filtro SVG
+  (`feDisplacementMap`) aplicado a lo que hay detrás mediante `backdrop-filter`. La deformación está acotada a
+  **3 px** (tope suave); en la práctica un toque llega a ~1,2 px y la estela rápida del mouse a ~1,8 px.
+- **Safari (todo iPhone) y Firefox**: no pueden aplicar ese filtro (comprobado con un WebKit real), así que solo se
+  ve un brillo muy sutil en el mismo sitio, sin deformar. La detección es por el **motor**, no por el nombre: el
+  modo dispositivo «iPhone» de las herramientas de Chrome sí deforma porque su motor sigue siendo Chromium.
+- Cero costo en reposo: el filtro solo existe mientras la marca es visible y se retira al desvanecerse. La marca
+  avanza a 60 pasos por segundo reales, así que dura lo mismo a cualquier tasa de cuadros.
+- No se monta con «reducir movimiento», no bloquea clics ni el scroll con el dedo.
+
+Código: la huella en `src/lib/trailField.ts`, su conversión a mapa de deformación en `src/lib/rippleMap.ts`,
+la detección del motor en `src/lib/browserSupport.ts` y el componente en `src/components/effects/WaterRipple.tsx`.
+
+**Ajustar:** `DEFAULT_DISPLACEMENT` en `rippleMap.ts` (`gain` = cuánto deforma, `maxPx` = tope absoluto) y
+`DEFAULT_DECAY` en `trailField.ts` (cuánto dura la marca). Los tests miden que, con la ganancia actual, entre celdas
+vecinas el salto no pasa de ~0,6 px; si subes `gain` mucho, fallarán a propósito (las letras empezarían a cizallarse).
 
 ## Desarrollo local
 
@@ -44,7 +100,7 @@ npm run start
 
 ```bash
 npm test            # unitarios y de componentes (Vitest + Testing Library)
-npm run test:e2e    # navegador real, escritorio y móvil (Playwright; construye y levanta el sitio)
+npm run test:e2e    # navegador real: escritorio y Android (Chromium) + iPhone (WebKit/Safari real); construye y levanta el sitio
 npm run typecheck && npm run lint
 ```
 
