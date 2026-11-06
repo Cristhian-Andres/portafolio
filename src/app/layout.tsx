@@ -2,6 +2,10 @@ import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Poppins } from "next/font/google";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { GatekeeperProvider } from "@/components/gatekeeper/GatekeeperProvider";
+import { GoogleTagManager } from "@/components/analytics/GoogleTagManager";
+import { WaterRipple } from "@/components/effects/WaterRipple";
+import { ScrollReset } from "@/components/layout/ScrollReset";
+import { SCROLL_RESET_INLINE_SCRIPT } from "@/lib/scrollReset";
 import { profile } from "@/data/profile";
 import { SITE_URL } from "@/lib/constants";
 import "./globals.css";
@@ -65,13 +69,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
       className={`${poppins.variable} ${mono.variable} h-full antialiased`}
     >
+      <head>
+        {/* Desactiva la restauración de scroll del navegador antes de que actúe. */}
+        <script dangerouslySetInnerHTML={{ __html: SCROLL_RESET_INLINE_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col font-sans">
+        <ScrollReset />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
         />
+        <GoogleTagManager />
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <GatekeeperProvider>{children}</GatekeeperProvider>
+          <WaterRipple />
         </ThemeProvider>
       </body>
     </html>

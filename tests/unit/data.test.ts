@@ -21,7 +21,7 @@ describe("integridad de los datos", () => {
   it("los activos referenciados existen en /public", () => {
     expect(existsSync(publicFile(profile.photoSrc))).toBe(true);
     expect(existsSync(publicFile(profile.cvUrl))).toBe(true);
-    expect(existsSync(publicFile("cat.gif"))).toBe(true);
+    expect(existsSync(publicFile("cat.gif"))).toBe(false); // el gato ya no se usa
     for (const project of projects) {
       expect(existsSync(publicFile(project.imageSrc)), project.imageSrc).toBe(true);
     }
@@ -49,5 +49,23 @@ describe("getYearsOfExperience", () => {
 
   it("nunca devuelve negativos", () => {
     expect(getYearsOfExperience(new Date("2000-01-01T00:00:00Z"))).toBe(0);
+  });
+});
+
+describe("formación", () => {
+  it("incluye el Bootcamp de IA de la UTP como el más reciente y completado", () => {
+    expect(education[0]).toMatchObject({
+      title: "Bootcamp de Inteligencia Artificial",
+      institution: "Universidad Tecnológica de Pereira",
+      period: "Ene 2026 — Jun 2026",
+      status: "completed",
+    });
+  });
+});
+
+describe("privacidad", () => {
+  it("el perfil no expone número de teléfono", () => {
+    expect(profile).not.toHaveProperty("phone");
+    expect(JSON.stringify(profile)).not.toMatch(/\+?\d[\d\s-]{8,}\d/);
   });
 });

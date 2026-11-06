@@ -1,59 +1,46 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
 import { useGatekeeperStore } from "./useGatekeeperStore";
 import { useHasHydrated } from "./useHasHydrated";
-import { useIsDesktop } from "./useIsDesktop";
-import { RecruiterModal } from "./RecruiterModal";
-import { SplitScreenPanel } from "./SplitScreenPanel";
-import { FloatingCatPill } from "./FloatingCatPill";
+import { IntroGate } from "./IntroGate";
+import { FloatingMailButton } from "./FloatingMailButton";
 
 export function GatekeeperProvider({ children }: { children: ReactNode }) {
   const hasHydrated = useHasHydrated();
   const hasAnswered = useGatekeeperStore((state) => state.hasAnswered);
-  const isExpanded = useGatekeeperStore((state) => state.isExpanded);
+  const unlocking = useGatekeeperStore((state) => state.unlocking);
 
-  const showModal = hasHydrated && !hasAnswered;
-  const isDesktop = useIsDesktop();
-  // En escritorio hay panel lateral; en móvil solo la píldora, para no tapar el Hero.
-  const docked = hasHydrated && hasAnswered && !isExpanded && isDesktop;
-  const showPill = hasHydrated && hasAnswered && (isExpanded || !isDesktop);
+  // La introducción sigue visible mientras se envía el evento a GTM, justo antes de recargar.
+  const showGate = hasHydrated && (!hasAnswered || unlocking);
+  const showMailButton = hasHydrated && hasAnswered && !unlocking;
 
-  // Al cerrarse el modal el foco debe volver al contenido, no perderse.
-  const wasModalOpen = useRef(false);
   useEffect(() => {
-    if (wasModalOpen.current && !showModal) document.getElementById("main")?.focus({ preventScroll: true });
-    wasModalOpen.current = showModal;
-  }, [showModal]);
-
-  // Solo se bloquea el scroll mientras el modal está abierto.
-  useEffect(() => {
-    document.body.style.overflow = showModal ? "hidden" : "";
+    document.body.style.overflow = showGate ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [showModal]);
+  }, [showGate]);
 
   return (
     <div className="relative">
-      {/* El contenido siempre está en el HTML; `inert` lo saca del foco mientras el modal está abierto. */}
-      <div
-        inert={showModal}
-        className={cn(
-          "transition-[padding] duration-500",
-          docked && "md:pr-[380px]"
-        )}
-      >
-        {children}
-      </div>
+      {/* Cubre la página hasta saber si ya pasó por la introducción: evita el destello del
+          contenido completo antes de que aparezca. El contenido sigue en el HTML. */}
+      {!hasHydrated && (
+        <div aria-hidden="true" className="gate-veil fixed -inset-px z-[45] bg-white" />
+      )}
+      <noscript>
+        <style>{".gate-veil{display:none}"}</style>
+      </noscript>
 
-      {docked && <SplitScreenPanel />}
-      {showPill && <FloatingCatPill />}
+      {/* `inert` saca el contenido del foco y de los lectores mientras la introducción está abierta. */}
+      <div inert={showGate}>{children}</div>
 
-      <AnimatePresence>{showModal && <RecruiterModal />}</AnimatePresence>
+      {showMailButton && <FloatingMailButton />}
+
+      <AnimatePresence>{showGate && <IntroGate />}</AnimatePresence>
     </div>
   );
 }
