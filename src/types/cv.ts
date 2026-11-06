@@ -1,3 +1,5 @@
+import type { LucideIcon } from "lucide-react";
+
 export interface Experience {
   id: string;
   role: string;
@@ -18,11 +20,6 @@ export interface EducationItem {
   status: "completed" | "in-progress";
 }
 
-export interface SkillGroup {
-  id: string;
-  category: string;
-  items: string[];
-}
 
 export interface Project {
   id: string;
@@ -47,7 +44,6 @@ export interface Profile {
   name: string;
   role: string;
   location: string;
-  phone: string;
   contactEmail: string;
   tagline: string;
   roles: string[];
@@ -56,4 +52,22 @@ export interface Profile {
   cvUrl: string;
   socialLinks: SocialLink[];
   softSkills: string[];
+}
+
+export type SkillIcon =
+  | { kind: "brand"; icon: { path: string; hex: string; title: string } }
+  | { kind: "lucide"; icon: LucideIcon; color: string }
+  | { kind: "mono"; text: string; color: string; ink?: string };
+
+export interface SkillItem {
+  name: string;
+  detail?: string;
+  icon: SkillIcon;
+}
+
+export interface SkillGroup {
+  id: string;
+  category: string;
+  icon: LucideIcon;
+  items: SkillItem[];
 }

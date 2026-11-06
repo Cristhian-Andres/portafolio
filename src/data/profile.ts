@@ -4,7 +4,6 @@ export const profile: Profile = {
   name: "Cristhian Andrés Luna Navarro",
   role: "Analytics Engineer",
   location: "Popayán, Cauca, Colombia",
-  phone: "+57 324 587 9364",
   contactEmail: "cral2204@gmail.com",
   tagline:
     "Transformo datos en decisiones y automatizo procesos con IA y nuevas tecnologías, para que tu negocio avance más rápido.",

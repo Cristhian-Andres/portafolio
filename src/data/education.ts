@@ -2,6 +2,13 @@ import type { EducationItem } from "@/types/cv";
 
 export const education: EducationItem[] = [
   {
+    id: "utp-ia",
+    title: "Bootcamp de Inteligencia Artificial",
+    institution: "Universidad Tecnológica de Pereira",
+    period: "Ene 2026 — Jun 2026",
+    status: "completed",
+  },
+  {
     id: "unad",
     title: "Ingeniería en Sistemas",
     institution: "Universidad Nacional Abierta y a Distancia (UNAD)",
