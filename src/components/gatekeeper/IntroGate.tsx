@@ -11,10 +11,10 @@ import { INTRO_ROLE, buildIntroLines, totalChars, visibleLines } from "./introCo
 import { useGatekeeperStore } from "./useGatekeeperStore";
 import type { Audience } from "./useGatekeeperStore";
 
-export const TYPE_INTERVAL_MS = 14;
-export const CHARS_PER_TICK = 2;
-export const HOLD_AFTER_TYPING_MS = 700;
-export const CUT_DURATION_MS = 1000;
+export const TYPE_INTERVAL_MS = 10;
+export const CHARS_PER_TICK = 4;
+export const HOLD_AFTER_TYPING_MS = 300;
+export const CUT_DURATION_MS = 550;
 
 export type Stage = "typing" | "cut" | "question";
 
