@@ -9,7 +9,7 @@ export const GATE_EVENTS = {
   view: "gate_view",
   /** Pulsó «Soy reclutador». */
   recruiter: "gate_recruiter_click",
-  /** Pulsó «Ando de chismoso». */
+  /** Pulsó «Ando de curioso». */
   curious: "gate_curious_click",
   /** Cerró la introducción con Escape sin elegir. */
   dismiss: "gate_dismiss",

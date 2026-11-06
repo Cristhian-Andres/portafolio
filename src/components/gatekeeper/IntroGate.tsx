@@ -15,6 +15,10 @@ export const TYPE_INTERVAL_MS = 10;
 export const CHARS_PER_TICK = 4;
 export const HOLD_AFTER_TYPING_MS = 300;
 export const CUT_DURATION_MS = 550;
+/** Tiempo mínimo que se ve el mensaje de «revelación» tras elegir, antes de recargar. */
+export const REVEAL_MIN_MS = 1400;
+/** Palabra central de cada frase primero, el resto se abre hacia afuera. */
+export const REVEAL_WORD_STAGGER_MS = 90;
 
 export type Stage = "typing" | "cut" | "question";
 
@@ -39,6 +43,38 @@ const EVENT_BY_AUDIENCE: Record<Audience, string> = {
   curious: GATE_EVENTS.curious,
   unknown: GATE_EVENTS.dismiss,
 };
+
+/** Mensaje de transición tras elegir: la diferencia real entre las dos opciones (el destino es el mismo). */
+const REVEAL_MESSAGE: Record<"recruiter" | "curious", string> = {
+  recruiter: "Ahora te muestro todo mi potencial",
+  curious: "Bienvenido a mi mundo",
+};
+
+/** Revela `text` palabra por palabra, de adentro hacia afuera (la central primero). */
+function RevealMessage({ text, reduced }: { text: string; reduced: boolean }) {
+  const words = text.split(" ");
+  const center = (words.length - 1) / 2;
+  return (
+    <h2 className="text-2xl font-extrabold leading-snug text-slate-900 sm:text-3xl">
+      {words.map((word, index) => (
+        <motion.span
+          key={index}
+          className="inline-block"
+          initial={reduced ? false : { opacity: 0, scale: 0.55, filter: "blur(6px)" }}
+          animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+          transition={{
+            duration: reduced ? 0 : 0.45,
+            delay: reduced ? 0 : Math.abs(index - center) * (REVEAL_WORD_STAGGER_MS / 1000),
+            ease: "easeOut",
+          }}
+        >
+          {word}
+          {index < words.length - 1 ? " " : ""}
+        </motion.span>
+      ))}
+    </h2>
+  );
+}
 
 function useIntroSequence(total: number, reduced: boolean) {
   const [stage, setStage] = useState<Stage>("typing");
@@ -85,6 +121,7 @@ export function IntroGate() {
   const chosenRef = useRef<Audience | null>(null);
   const viewSentRef = useRef(false);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [revealAudience, setRevealAudience] = useState<"recruiter" | "curious" | null>(null);
 
   // Cuenta la visita: una vez por carga de página.
   useEffect(() => {
@@ -98,10 +135,18 @@ export function IntroGate() {
     chosenRef.current = audience;
     setChosen(audience);
     startUnlock();
-    // El evento se envía a GTM y, cuando confirma (o vence el tiempo), se guarda y recarga.
+    // Con un botón real se ve el mensaje de revelación; con Escape (sin elegir) no aplica.
+    if (audience !== "unknown") setRevealAudience(audience);
+    const revealStart = Date.now();
+    // El evento se envía a GTM y, cuando confirma (o vence el tiempo), se guarda y recarga —
+    // sin cortar el mensaje de revelación antes de su tiempo mínimo de lectura.
     trackThen(EVENT_BY_AUDIENCE[audience], { audience, gate_step: stage }, () => {
-      complete(audience);
-      window.location.reload();
+      const minWait = audience === "unknown" || reduced ? 0 : REVEAL_MIN_MS;
+      const wait = Math.max(0, minWait - (Date.now() - revealStart));
+      window.setTimeout(() => {
+        complete(audience);
+        window.location.reload();
+      }, wait);
     });
   }
 
@@ -175,7 +220,15 @@ export function IntroGate() {
           {profile.name}, {INTRO_ROLE}. Elige una opción para ver todo mi portafolio.
         </p>
 
-        {/* La hoja de vida: se «escribe» sola y luego se corta. Siempre blanca. */}
+        {revealAudience ? (
+          <div
+            data-stage="reveal"
+            className="flex h-[min(34rem,86dvh)] flex-col items-center justify-center gap-3 px-2 text-center"
+          >
+            <RevealMessage text={REVEAL_MESSAGE[revealAudience]} reduced={reduced} />
+          </div>
+        ) : (
+        /* La hoja de vida: se «escribe» sola y luego se corta. Siempre blanca. */
         <article className="relative h-[min(34rem,86dvh)] overflow-hidden rounded-xl bg-white text-slate-800 shadow-[0_18px_44px_-30px_rgba(15,23,42,0.28)] ring-1 ring-slate-200">
           <header aria-hidden="true" className="relative h-36">
             <div
@@ -306,7 +359,7 @@ export function IntroGate() {
                   onClick={() => choose("recruiter")}
                   className="rounded-full bg-[#84cc16] px-5 py-3 text-sm font-semibold text-[#0f1a03] shadow-lg shadow-lime-500/30 transition-all hover:-translate-y-0.5 hover:bg-[#65a30d] disabled:translate-y-0 disabled:opacity-70"
                 >
-                  {chosen === "recruiter" ? "Desbloqueando… ✨" : "Soy reclutador 🕵️"}
+                  Soy reclutador 🕵️
                 </button>
                 <button
                   type="button"
@@ -315,12 +368,13 @@ export function IntroGate() {
                   onClick={() => choose("curious")}
                   className="rounded-full border-2 border-slate-300 px-5 py-3 text-sm font-semibold text-slate-800 transition-all hover:-translate-y-0.5 hover:border-[#65a30d] hover:text-[#3f6212] disabled:translate-y-0 disabled:opacity-70"
                 >
-                  {chosen === "curious" ? "Desbloqueando… ✨" : "Ando de chismoso 👀"}
+                  Ando de curioso 👀
                 </button>
               </div>
             </motion.div>
           </motion.div>
         </article>
+        )}
       </div>
     </motion.div>
   );

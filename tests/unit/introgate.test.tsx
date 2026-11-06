@@ -5,6 +5,7 @@ import {
   CUT_DURATION_MS,
   HOLD_AFTER_TYPING_MS,
   IntroGate,
+  REVEAL_MIN_MS,
   TYPE_INTERVAL_MS,
 } from "@/components/gatekeeper/IntroGate";
 import {
@@ -36,8 +37,9 @@ let reload: ReturnType<typeof vi.fn>;
 function stage(container: HTMLElement) {
   return container.querySelector("[data-stage]")!.getAttribute("data-stage");
 }
-const recruiterBtn = () => screen.getByRole("button", { name: /soy reclutador|desbloqueando/i });
-const curiousBtn = () => screen.getByRole("button", { name: /chismoso|desbloqueando/i });
+const recruiterBtn = () => screen.getByRole("button", { name: /soy reclutador/i });
+const curiousBtn = () => screen.getByRole("button", { name: /ando de curioso/i });
+const reveal = () => document.querySelector("[data-stage='reveal']") as HTMLElement | null;
 const events = () => (w.dataLayer ?? []).map((e) => e.event);
 const STEP_MS = 10;
 function advance(ms: number) {
@@ -170,7 +172,7 @@ describe("medición con Google Tag Manager", () => {
     expect(events().filter((e) => e === "gate_view")).toHaveLength(1);
   });
 
-  it("«Soy reclutador» envía su evento propio y luego recarga con todo desbloqueado", () => {
+  it("«Soy reclutador» envía su evento propio, revela el mensaje y luego recarga", () => {
     toQuestion();
     fireEvent.click(recruiterBtn());
 
@@ -181,13 +183,13 @@ describe("medición con Google Tag Manager", () => {
     });
     expect(events()).not.toContain("gate_curious_click");
 
-    // Mientras se envía: sigue en pantalla, «Desbloqueando…», deshabilitado y sin recargar aún.
-    expect(recruiterBtn()).toHaveTextContent(/desbloqueando/i);
-    expect(recruiterBtn()).toBeDisabled();
+    // Mientras se envía: la tarjeta se reemplaza por el mensaje de revelación y aún no recarga.
+    expect(reveal()).toHaveTextContent("Ahora te muestro todo mi potencial");
+    expect(screen.queryByRole("button", { name: /soy reclutador/i })).toBeNull();
     expect(useGatekeeperStore.getState().unlocking).toBe(true);
     expect(reload).not.toHaveBeenCalled();
 
-    advance(NO_GTM_DELAY_MS);
+    advance(NO_GTM_DELAY_MS + REVEAL_MIN_MS);
     expect(reload).toHaveBeenCalledTimes(1);
     expect(useGatekeeperStore.getState()).toMatchObject({
       hasAnswered: true,
@@ -195,13 +197,14 @@ describe("medición con Google Tag Manager", () => {
     });
   });
 
-  it("«Ando de chismoso» envía un evento distinto y también recarga", () => {
+  it("«Ando de curioso» envía un evento distinto, revela otro mensaje y también recarga", () => {
     toQuestion();
     fireEvent.click(curiousBtn());
 
     expect(events()).toContain("gate_curious_click");
     expect(events()).not.toContain("gate_recruiter_click");
-    advance(NO_GTM_DELAY_MS);
+    expect(reveal()).toHaveTextContent("Bienvenido a mi mundo");
+    advance(NO_GTM_DELAY_MS + REVEAL_MIN_MS);
     expect(reload).toHaveBeenCalledTimes(1);
     expect(useGatekeeperStore.getState()).toMatchObject({ hasAnswered: true, audience: "curious" });
   });
@@ -212,21 +215,26 @@ describe("medición con Google Tag Manager", () => {
       reload.mockClear();
       const { unmount } = toQuestion();
       fireEvent.click(pick());
-      advance(NO_GTM_DELAY_MS);
+      advance(NO_GTM_DELAY_MS + REVEAL_MIN_MS);
       expect(reload).toHaveBeenCalledTimes(1);
       expect(useGatekeeperStore.getState().hasAnswered).toBe(true);
       unmount();
     }
   });
 
-  it("pulsar varias veces no duplica el evento ni la recarga", () => {
+  it("no espera el mínimo de revelación antes de recargar al cerrar con Escape", () => {
+    render(<IntroGate />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    advance(NO_GTM_DELAY_MS + STEP_MS);
+    expect(reload).toHaveBeenCalledTimes(1); // «unknown»: sin mensaje de revelación que esperar
+  });
+
+  it("pulsar el botón varias veces no duplica el evento ni la recarga", () => {
     toQuestion();
     const btn = recruiterBtn();
-    const other = curiousBtn(); // se captura antes: tras pulsar, ambos dirían «Desbloqueando…»
     fireEvent.click(btn);
-    fireEvent.click(btn);
-    fireEvent.click(other);
-    advance(NO_GTM_DELAY_MS * 4);
+    fireEvent.click(btn); // la tarjeta (con ambos botones) ya fue reemplazada por el mensaje
+    advance(NO_GTM_DELAY_MS + REVEAL_MIN_MS + 100);
     expect(events().filter((e) => e === "gate_recruiter_click")).toHaveLength(1);
     expect(events()).not.toContain("gate_curious_click");
     expect(reload).toHaveBeenCalledTimes(1);
@@ -238,12 +246,13 @@ describe("medición con Google Tag Manager", () => {
     expect(w.dataLayer!.find((e) => e.event === "gate_dismiss")).toMatchObject({
       audience: "unknown",
     });
-    advance(NO_GTM_DELAY_MS);
+    expect(reveal()).toBeNull(); // Escape no elige audiencia: no hay mensaje que mostrar
+    advance(NO_GTM_DELAY_MS + STEP_MS);
     expect(reload).toHaveBeenCalledTimes(1);
     expect(useGatekeeperStore.getState()).toMatchObject({ hasAnswered: true, audience: "unknown" });
   });
 
-  it("con GTM presente espera su confirmación antes de recargar", () => {
+  it("con GTM presente espera su confirmación y el mínimo de revelación antes de recargar", () => {
     (window as unknown as { google_tag_manager: object }).google_tag_manager = { "GTM-X": {} };
     toQuestion();
     fireEvent.click(recruiterBtn());
@@ -253,8 +262,40 @@ describe("medición con Google Tag Manager", () => {
       eventCallback: () => void;
     };
     act(() => pushed.eventCallback());
+    expect(reload).not.toHaveBeenCalled(); // GTM ya confirmó, pero el mensaje aún no cumplió su mínimo
+    advance(REVEAL_MIN_MS);
     expect(reload).toHaveBeenCalledTimes(1);
     delete (window as unknown as { google_tag_manager?: object }).google_tag_manager;
+  });
+});
+
+describe("mensaje de revelación tras elegir", () => {
+  function toQuestion() {
+    const utils = render(<IntroGate />);
+    advance(Math.ceil(totalChars(lines) / CHARS_PER_TICK) * TYPE_INTERVAL_MS + HOLD_AFTER_TYPING_MS + CUT_DURATION_MS + 50);
+    return utils;
+  }
+
+  it("reemplaza la tarjeta por el mensaje correspondiente a la audiencia elegida", () => {
+    toQuestion();
+    fireEvent.click(recruiterBtn());
+    expect(reveal()!.textContent).toBe("Ahora te muestro todo mi potencial");
+  });
+
+  it("revela cada palabra como un span independiente, para animarlas de adentro hacia afuera", () => {
+    toQuestion();
+    fireEvent.click(curiousBtn());
+    const words = reveal()!.querySelectorAll("span");
+    expect(Array.from(words).map((w) => w.textContent?.trim())).toEqual(["Bienvenido", "a", "mi", "mundo"]);
+  });
+
+  it("con «reducir movimiento» no espera el mínimo de revelación", () => {
+    motionPrefs.reduced = true;
+    toQuestion();
+    fireEvent.click(recruiterBtn());
+    expect(reveal()).not.toBeNull();
+    advance(NO_GTM_DELAY_MS + STEP_MS);
+    expect(reload).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -415,13 +456,13 @@ describe("la pregunta: solo el título y los dos botones", () => {
   it("los botones conservan sus emojis", () => {
     question();
     expect(recruiterBtn()).toHaveTextContent("Soy reclutador 🕵️");
-    expect(curiousBtn()).toHaveTextContent("Ando de chismoso 👀");
+    expect(curiousBtn()).toHaveTextContent("Ando de curioso 👀");
   });
 
   it("en la etapa de pregunta solo hay título y botones (sin párrafos de relleno visibles)", () => {
     question();
     const overlay = document.querySelector("[data-stage='question']")!;
     const text = overlay.textContent!.replace(/\s+/g, " ").trim();
-    expect(text).toBe("¿Qué haces aquí?Soy reclutador 🕵️Ando de chismoso 👀");
+    expect(text).toBe("¿Qué haces aquí?Soy reclutador 🕵️Ando de curioso 👀");
   });
 });

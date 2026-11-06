@@ -122,7 +122,7 @@ test.describe("introducción: perfil → carga → corte → pregunta", () => {
     await expect(curious(page)).toBeEnabled();
     await expect(dialog.getByText("Cargando perfil…")).toHaveCount(0);
     await expect(recruiter(page)).toContainText("Soy reclutador");
-    await expect(curious(page)).toContainText("chismoso");
+    await expect(curious(page)).toContainText("curioso");
     await expect(page.getByRole("heading", { name: /qué haces aquí/i })).toHaveCSS("opacity", "1");
 
     const stages = await page.evaluate(() => (window as unknown as { __stages: string[] }).__stages);
@@ -184,7 +184,7 @@ test.describe("introducción: la pregunta solo muestra el título y los dos boto
     await expect(dialog.getByText(/solo cuento/i)).toHaveCount(0);
     await expect(dialog.getByText(/datos personales/i)).toHaveCount(0);
     await expect(recruiter(page)).toHaveText("Soy reclutador 🕵️");
-    await expect(curious(page)).toHaveText("Ando de chismoso 👀");
+    await expect(curious(page)).toHaveText("Ando de curioso 👀");
   });
 
   test("con menos contenido, el título y los botones siguen centrados y dentro de la hoja", async ({
@@ -320,7 +320,7 @@ test.describe("medición con Google Tag Manager + recarga", () => {
       other: "gate_curious_click",
     },
     {
-      name: "Ando de chismoso",
+      name: "Ando de curioso",
       pick: curious,
       event: "gate_curious_click",
       audience: "curious",
@@ -356,7 +356,9 @@ test.describe("medición con Google Tag Manager + recarga", () => {
     });
   }
 
-  test("sin importar qué botón pulse, el resultado visible es idéntico", async ({ browser }) => {
+  test("ambos botones llevan a la misma página, pero con un orden de secciones distinto (la elección sí importa)", async ({
+    browser,
+  }) => {
     const snapshots: string[] = [];
     for (const c of cases) {
       const context = await browser.newContext({ reducedMotion: "reduce" });
@@ -373,8 +375,13 @@ test.describe("medición con Google Tag Manager + recarga", () => {
       );
       await context.close();
     }
-    expect(snapshots[0]).toBe(snapshots[1]);
-    expect(snapshots[0]).toContain("skills");
+    const [recruiterOrder, curiousOrder] = snapshots;
+    // Mismo contenido para las dos audiencias…
+    expect(new Set(recruiterOrder.split(","))).toEqual(new Set(curiousOrder.split(",")));
+    // …pero en un orden distinto: la diferencia real entre elegir una u otra opción.
+    expect(recruiterOrder).not.toBe(curiousOrder);
+    expect(recruiterOrder).toBe("home,about,experience,skills,education,projects,contact");
+    expect(curiousOrder).toBe("home,projects,skills,about,experience,education,contact");
   });
 
   test("tras elegir, la recarga inmediata muestra todo; una carga posterior vuelve a mostrar la introducción", async ({
@@ -443,11 +450,11 @@ test.describe("medición con Google Tag Manager + recarga", () => {
     expect(dismiss?.audience).toBe("unknown");
   });
 
-  test("mientras se envía el evento el botón muestra «Desbloqueando…» y no admite otro clic", async ({
+  test("al elegir, los botones se reemplazan por el mensaje de revelación y ya no se puede volver a elegir", async ({
     page,
   }) => {
     await logDataLayer(page);
-    // Frena el temporizador para poder observar el estado intermedio.
+    // Frena el temporizador para poder observar el estado intermedio antes de que recargue.
     await page.addInitScript(() => {
       const realSetTimeout = window.setTimeout.bind(window);
       window.setTimeout = ((fn: TimerHandler, ms?: number, ...args: unknown[]) =>
@@ -455,10 +462,9 @@ test.describe("medición con Google Tag Manager + recarga", () => {
     });
     await openQuestionFast(page);
     await recruiter(page).click();
-    await expect(recruiter(page)).toContainText("Desbloqueando");
-    await expect(recruiter(page)).toBeDisabled();
-    await expect(curious(page)).toBeDisabled();
-    await curious(page).click({ force: true }).catch(() => undefined);
+    await expect(page.getByText("Ahora te muestro todo mi potencial")).toBeVisible();
+    await expect(recruiter(page)).toHaveCount(0);
+    await expect(curious(page)).toHaveCount(0); // la tarjeta entera, con ambos botones, ya no existe
     await expectReloaded(page);
     const events = (await readLog(page)).map((e) => e.event);
     expect(events).not.toContain("gate_curious_click");
