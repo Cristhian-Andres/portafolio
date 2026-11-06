@@ -26,7 +26,7 @@ Todo el contenido (perfil, experiencia, skills, educación y proyectos académic
 ## Introducción interactiva («¿Qué haces aquí?»)
 
 Al entrar, mi hoja de vida se «escribe» sola (con datos reales de `src/data/experience.ts`), se corta con tijeras
-mientras muestra «Cargando perfil…» con una barra de progreso (no hay botón para saltarla), y pregunta **¿Qué haces aquí?** con dos botones: **Soy reclutador** y **Ando de chismoso**. Cualquiera de los dos
+mientras muestra «Cargando perfil…» con una barra de progreso (no hay botón para saltarla), y pregunta **¿Qué haces aquí?** con dos botones: **Soy reclutador** y **Ando de curioso**. Cualquiera de los dos
 desbloquea todo: se envía el evento a Google Tag Manager, la página **se recarga** y se muestra el portafolio completo.
 Solo la recarga que ocurre justo después de pulsar un botón muestra todo directamente (margen de 10 s,
 `UNLOCK_GRACE_MS` en `src/lib/constants.ts`): **cualquier otra carga o recarga vuelve a mostrar la introducción**,
@@ -49,7 +49,7 @@ actúe (`src/lib/scrollReset.ts`).
 | --- | --- | --- |
 | `gate_view` | Se muestra la introducción (una vez por carga) | `gate_step`, `page_path` |
 | `gate_recruiter_click` | Pulsa **Soy reclutador** | `audience: "recruiter"`, `gate_step` |
-| `gate_curious_click` | Pulsa **Ando de chismoso** | `audience: "curious"`, `gate_step` |
+| `gate_curious_click` | Pulsa **Ando de curioso** | `audience: "curious"`, `gate_step` |
 | `gate_dismiss` | Cierra con Escape sin elegir | `audience: "unknown"` |
 
 Al pulsar un botón, la recarga espera a que GTM confirme el envío (`eventCallback`, con un máximo de ~1,2 s) para no perder el clic.

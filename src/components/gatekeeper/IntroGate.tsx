@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
@@ -57,20 +57,23 @@ function RevealMessage({ text, reduced }: { text: string; reduced: boolean }) {
   return (
     <h2 className="text-2xl font-extrabold leading-snug text-slate-900 sm:text-3xl">
       {words.map((word, index) => (
-        <motion.span
-          key={index}
-          className="inline-block"
-          initial={reduced ? false : { opacity: 0, scale: 0.55, filter: "blur(6px)" }}
-          animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-          transition={{
-            duration: reduced ? 0 : 0.45,
-            delay: reduced ? 0 : Math.abs(index - center) * (REVEAL_WORD_STAGGER_MS / 1000),
-            ease: "easeOut",
-          }}
-        >
-          {word}
-          {index < words.length - 1 ? " " : ""}
-        </motion.span>
+        <Fragment key={index}>
+          <motion.span
+            data-reveal-word=""
+            className="inline-block"
+            initial={reduced ? false : { opacity: 0, scale: 0.55, filter: "blur(6px)" }}
+            animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+            transition={{
+              duration: reduced ? 0 : 0.45,
+              delay: reduced ? 0 : Math.abs(index - center) * (REVEAL_WORD_STAGGER_MS / 1000),
+              ease: "easeOut",
+            }}
+          >
+            {word}
+          </motion.span>
+          {/* El espacio va FUERA del bloque: al final de un inline-block se colapsa y las palabras quedaban pegadas. */}
+          {index < words.length - 1 ? " " : null}
+        </Fragment>
       ))}
     </h2>
   );

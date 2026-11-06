@@ -14,6 +14,7 @@ export function GatekeeperProvider({ children }: { children: ReactNode }) {
   const hasAnswered = useGatekeeperStore((state) => state.hasAnswered);
   const unlocking = useGatekeeperStore((state) => state.unlocking);
   const audience = useGatekeeperStore((state) => state.audience);
+  const answeredAt = useGatekeeperStore((state) => state.answeredAt);
 
   // La introducción sigue visible mientras se envía el evento a GTM, justo antes de recargar.
   const showGate = hasHydrated && (!hasAnswered || unlocking);
@@ -41,7 +42,7 @@ export function GatekeeperProvider({ children }: { children: ReactNode }) {
       <div inert={showGate}>{children}</div>
 
       {showMailButton && <FloatingMailButton />}
-      {showMailButton && audience && <PersuasionNudge audience={audience} />}
+      {showMailButton && audience && <PersuasionNudge audience={audience} answeredAt={answeredAt} />}
 
       <AnimatePresence>{showGate && <IntroGate />}</AnimatePresence>
     </div>
