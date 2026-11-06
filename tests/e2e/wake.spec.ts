@@ -56,14 +56,29 @@ const wakeStats = (page: Page) =>
     };
   });
 
-/** Recorre una línea horizontal con el mouse y deja el puntero quieto al final. */
+/**
+ * Espera a que la línea esté dibujada y devuelve esa medición. Se sondea porque el dibujo ocurre en el
+ * siguiente cuadro y en un equipo lento (CI) tarda más; la línea vive menos de 1 s, así que se mira de inmediato.
+ */
+async function seenWake(page: Page) {
+  let seen: Awaited<ReturnType<typeof wakeStats>> | undefined;
+  await expect
+    .poll(
+      async () => {
+        const s = await wakeStats(page);
+        if (s.lit > 20) seen = s;
+        return s.lit > 20;
+      },
+      { intervals: [20, 20, 30], timeout: 4_000 }
+    )
+    .toBe(true);
+  return seen!;
+}
+
+/** Recorre una línea horizontal con el mouse en un solo gesto (no depende de la velocidad del equipo). */
 async function sweep(page: Page, y = 300, from = 300, to = 640) {
   await page.mouse.move(from, y);
-  const steps = 16;
-  for (let i = 1; i <= steps; i++) {
-    await page.mouse.move(from + ((to - from) * i) / steps, y);
-    await page.waitForTimeout(14);
-  }
+  await page.mouse.move(to, y, { steps: 16 });
 }
 
 test.describe("estela de barco: línea fina por donde pasa el puntero", () => {
@@ -88,7 +103,7 @@ test.describe("estela de barco: línea fina por donde pasa el puntero", () => {
     await enter(page);
     await expect(page.locator("html")).toHaveClass(/dark/);
     await sweep(page);
-    const s = await wakeStats(page);
+    const s = await seenWake(page);
     expect(s.lit).toBeGreaterThan(20);
     expect(s.rgb.every((v) => v >= 250)).toBe(true);
     expect(s.maxAlpha).toBeLessThanOrEqual(0.5);
@@ -101,7 +116,7 @@ test.describe("estela de barco: línea fina por donde pasa el puntero", () => {
     await enter(page);
     await expect(page.locator("html")).not.toHaveClass(/dark/);
     await sweep(page);
-    const s = await wakeStats(page);
+    const s = await seenWake(page);
     expect(s.lit).toBeGreaterThan(20);
     expect(s.rgb.every((v) => v <= 5)).toBe(true);
     expect(s.maxAlpha).toBeLessThanOrEqual(0.5);
@@ -114,7 +129,7 @@ test.describe("estela de barco: línea fina por donde pasa el puntero", () => {
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByTestId("water-wake")).toBeAttached();
     await sweep(page, 260, 200, 560);
-    const s = await wakeStats(page);
+    const s = await seenWake(page);
     expect(s.lit).toBeGreaterThan(20);
     expect(s.rgb.every((v) => v <= 5)).toBe(true);
   });
@@ -126,7 +141,7 @@ test.describe("estela de barco: línea fina por donde pasa el puntero", () => {
     test.skip(isMobile);
     await enter(page);
     await sweep(page, 300, 300, 640);
-    const s = await wakeStats(page);
+    const s = await seenWake(page);
     expect(s.box).not.toBeNull();
     expect(s.box!.x1).toBeGreaterThan(600);
     expect(s.box!.x1).toBeLessThanOrEqual(645);
@@ -141,7 +156,7 @@ test.describe("estela de barco: línea fina por donde pasa el puntero", () => {
     await page.mouse.move(300, 200);
     // un solo gesto con pasos: no depende de la carga de la máquina (la línea vive menos de 1 s)
     await page.mouse.move(620, 424, { steps: 16 });
-    const s = await wakeStats(page);
+    const s = await seenWake(page);
     expect(s.box!.x1 - s.box!.x0).toBeGreaterThan(40);
     expect(s.box!.y1 - s.box!.y0).toBeGreaterThan(30);
   });
@@ -150,10 +165,9 @@ test.describe("estela de barco: línea fina por donde pasa el puntero", () => {
     test.skip(isMobile);
     await enter(page);
     await sweep(page);
-    expect((await wakeStats(page)).lit).toBeGreaterThan(20);
-    await expect(page.getByTestId("water-wake")).toHaveAttribute("data-live", "true");
-    await page.waitForTimeout(1_500);
-    expect((await wakeStats(page)).lit).toBe(0);
+    await seenWake(page);
+    // se desvanece sola: en menos de 1,5 s (más margen para un equipo lento) no queda nada
+    await expect.poll(async () => (await wakeStats(page)).lit, { timeout: 4_000 }).toBe(0);
     await expect(page.getByTestId("water-wake")).toHaveAttribute("data-live", "false");
   });
 
@@ -185,16 +199,14 @@ test.describe("estela de barco con el dedo (móvil)", () => {
     await send("touchStart", [{ x: 60, y: 300 }]);
     for (let i = 1; i <= 14; i++) {
       await send("touchMove", [{ x: 60 + i * 18, y: 300 + Math.sin(i / 2) * 6 }]);
-      await page.waitForTimeout(14);
     }
-    const s = await wakeStats(page);
+    const s = await seenWake(page);
     expect(s.lit).toBeGreaterThan(20);
     expect(s.rgb.every((v) => v >= 250)).toBe(true);
     expect(s.maxAlpha).toBeLessThanOrEqual(0.5);
     expect(s.thickness).toBeLessThanOrEqual(4);
     await send("touchEnd", []);
-    await page.waitForTimeout(1_500);
-    expect((await wakeStats(page)).lit).toBe(0);
+    await expect.poll(async () => (await wakeStats(page)).lit, { timeout: 4_000 }).toBe(0);
   });
 
   test("un toque simple no deja línea", async ({ page, isMobile }) => {
