@@ -21,7 +21,7 @@ const mono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-const title = `${profile.name} — ${profile.role}`;
+const title = profile.name; // en la pestaña solo el nombre, sin el rol
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
