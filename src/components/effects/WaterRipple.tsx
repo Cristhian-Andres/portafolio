@@ -6,6 +6,7 @@ import { readEngineHints, supportsSvgBackdropFilter } from "@/lib/browserSupport
 import { DEFAULT_DISPLACEMENT, DisplacementEncoder, NEUTRAL } from "@/lib/rippleMap";
 import { TrailField, wakeStrength } from "@/lib/trailField";
 import type { RippleStyle } from "@/lib/trailField";
+import { WakeTrail, wakeRgb } from "@/lib/wakeTrail";
 
 /** Tamaño de cada celda de la simulación, en píxeles de pantalla. */
 export const CELL_PX = 8;
@@ -36,11 +37,15 @@ function sheenStyle(isDark: boolean, refraction: boolean): RippleStyle {
  *
  * - Chrome / Edge / Android: refracción real con un filtro SVG (máx. ~3 px), solo donde se toca.
  * - Safari / Firefox: solo un brillo muy sutil en el mismo sitio (no pueden aplicar el filtro).
- * - Solo trabaja mientras la marca es visible; en reposo no consume nada.
+ * - Además deja una ESTELA de barco: una línea fina que se afina hacia atrás, marca la dirección y se
+ *   desvanece en menos de un segundo; blanca sobre fondo oscuro y negra sobre fondo claro. Esa línea
+ *   funciona en todos los navegadores.
+ * - Solo trabaja mientras la marca o la estela son visibles; en reposo no consume nada.
  * - No se monta con «reducir movimiento».
  */
 export function WaterRipple() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wakeCanvasRef = useRef<HTMLCanvasElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<SVGFilterElement>(null);
   const feImageRef = useRef<SVGFEImageElement>(null);
@@ -53,7 +58,9 @@ export function WaterRipple() {
     const filter = filterRef.current;
     const feImage = feImageRef.current;
     const ctx = canvas?.getContext("2d");
-    if (!canvas || !lens || !filter || !feImage || !ctx) return;
+    const wakeCanvas = wakeCanvasRef.current;
+    const wctx = wakeCanvas?.getContext("2d");
+    if (!canvas || !lens || !filter || !feImage || !ctx || !wakeCanvas || !wctx) return;
 
     const refraction = supportsSvgBackdropFilter(navigator.userAgent, readEngineHints());
     canvas.dataset.mode = refraction ? "refraction" : "sheen";
@@ -70,6 +77,8 @@ export function WaterRipple() {
     let running = false;
     let last: { x: number; y: number } | null = null;
     let frameMs = 0;
+    let fieldSleeping = true;
+    const wakeTrail = new WakeTrail();
     let lastTime = 0;
     let accumulator = 0;
 
@@ -80,6 +89,12 @@ export function WaterRipple() {
       canvas!.height = rows;
       field = new TrailField(cols, rows);
       image = ctx!.createImageData(cols, rows);
+
+      // La estela es una línea fina: va en su propio lienzo, a resolución completa (nítida).
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      wakeCanvas!.width = Math.round(window.innerWidth * dpr);
+      wakeCanvas!.height = Math.round(window.innerHeight * dpr);
+      wctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       if (refraction && mapCanvas && mapCtx) {
         mapCanvas.width = cols;
@@ -108,6 +123,30 @@ export function WaterRipple() {
       lens!.dataset.state = state;
     }
 
+    /** Dibuja la estela: tramos curvos afinados hacia atrás. Blanca sobre oscuro, negra sobre claro. */
+    function drawWake(now: number, onDarkBackground: boolean) {
+      wctx!.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      wakeTrail.prune(now);
+      const rgb = wakeRgb(onDarkBackground);
+      wctx!.lineCap = "butt"; // con puntas redondas el alfa se acumularía en cada unión
+      wctx!.lineJoin = "round";
+      for (const s of wakeTrail.segments(now)) {
+        wctx!.beginPath();
+        wctx!.moveTo(s.x0, s.y0);
+        wctx!.quadraticCurveTo(s.cx, s.cy, s.x1, s.y1);
+        wctx!.lineWidth = s.width;
+        wctx!.strokeStyle = "rgba(" + rgb + "," + s.alpha.toFixed(3) + ")";
+        wctx!.stroke();
+      }
+      wakeCanvas!.dataset.live = wakeTrail.isAlive(now) ? "true" : "false";
+    }
+
+    function clearWake() {
+      wakeTrail.clear();
+      wctx!.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      wakeCanvas!.dataset.live = "false";
+    }
+
     /** El filtro solo existe mientras hay ondas: en reposo no cuesta nada y no toca el texto. */
     function setLens(on: boolean) {
       lens!.style.backdropFilter = on && refraction ? `url(#${FILTER_ID})` : "none";
@@ -126,24 +165,32 @@ export function WaterRipple() {
         steps++;
       }
 
-      if (refraction && encoder && mapImage && mapCtx && mapCanvas) {
-        encoder.encode(field, mapImage.data, DEFAULT_DISPLACEMENT);
-        mapCtx.putImageData(mapImage, 0, 0);
-        feImage!.setAttribute("href", mapCanvas.toDataURL("image/png"));
-      }
-
       // La introducción es siempre blanca: sobre ella se usa la paleta clara aunque el sitio esté en oscuro.
       const onWhiteIntro = document.querySelector("[data-intro-gate]") !== null;
       const isDark = document.documentElement.classList.contains("dark") && !onWhiteIntro;
-      field.render(image.data, sheenStyle(isDark, refraction));
-      ctx!.putImageData(image, 0, 0);
+
+      if (!fieldSleeping) {
+        if (refraction && encoder && mapImage && mapCtx && mapCanvas) {
+          encoder.encode(field, mapImage.data, DEFAULT_DISPLACEMENT);
+          mapCtx.putImageData(mapImage, 0, 0);
+          feImage!.setAttribute("href", mapCanvas.toDataURL("image/png"));
+        }
+        field.render(image.data, sheenStyle(isDark, refraction));
+        ctx!.putImageData(image, 0, 0);
+      }
+      drawWake(started, isDark);
 
       frameMs = frameMs === 0 ? performance.now() - started : frameMs * 0.9 + (performance.now() - started) * 0.1;
 
-      if (field.isCalm) {
+      // La deformación se apaga en cuanto termina (el filtro se retira); el bucle sigue solo
+      // mientras la estela siga visible.
+      if (!fieldSleeping && field.isCalm) {
         field.clear();
         ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
         setLens(false);
+        fieldSleeping = true;
+      }
+      if (fieldSleeping && !wakeTrail.isAlive(started)) {
         running = false;
         canvas!.dataset.frameMs = frameMs.toFixed(2);
         setState("idle");
@@ -153,17 +200,21 @@ export function WaterRipple() {
     }
 
     function wake() {
-      if (running || document.hidden) return;
+      if (document.hidden) return;
+      // Con una marca nueva la deformación vuelve a encenderse (aunque el bucle siguiera por la estela).
+      fieldSleeping = false;
+      setLens(true);
+      setState("active");
+      if (running) return;
       running = true;
       lastTime = performance.now();
       accumulator = SIM_STEP_MS; // el primer cuadro avanza un paso
-      setLens(true);
-      setState("active");
       frame = requestAnimationFrame(tick);
     }
 
     /** Estela del puntero: huellas pequeñas a lo largo del recorrido, para que no queden huecos. */
     function trail(clientX: number, clientY: number) {
+      wakeTrail.add(clientX, clientY, performance.now());
       const x = clientX / CELL_PX;
       const y = clientY / CELL_PX;
       if (last) {
@@ -206,12 +257,15 @@ export function WaterRipple() {
     };
     const onRelease = () => {
       last = null;
+      wakeTrail.endStroke(); // el siguiente trazo no se une con este
     };
     const onVisibility = () => {
       if (document.hidden) {
         cancelAnimationFrame(frame);
         running = false;
+        fieldSleeping = true;
         field.clear();
+        clearWake();
         setLens(false);
         setState("idle");
       }
@@ -222,8 +276,10 @@ export function WaterRipple() {
       resizeFrame = requestAnimationFrame(() => {
         cancelAnimationFrame(frame);
         running = false;
+        fieldSleeping = true;
         setLens(false);
         build();
+        clearWake();
         setState("idle");
       });
     };
@@ -231,6 +287,7 @@ export function WaterRipple() {
     build();
     setLens(false);
     setState("idle");
+    wakeCanvas.dataset.live = "false";
 
     window.addEventListener("pointermove", onPointerMove, { passive: true });
     window.addEventListener("pointerdown", onPointerDown, { passive: true });
@@ -246,6 +303,7 @@ export function WaterRipple() {
       cancelAnimationFrame(frame);
       cancelAnimationFrame(resizeFrame);
       setLens(false);
+      clearWake();
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointerleave", onRelease);
@@ -315,6 +373,15 @@ export function WaterRipple() {
         data-state="idle"
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 z-[61] h-full w-full [filter:blur(0.6px)]"
+      />
+
+      {/* Estela de barco: una línea fina y nítida por donde pasa el puntero. */}
+      <canvas
+        ref={wakeCanvasRef}
+        data-testid="water-wake"
+        data-live="false"
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-[62] h-full w-full"
       />
     </>
   );

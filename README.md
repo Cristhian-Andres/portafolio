@@ -71,10 +71,17 @@ una marca algo mayor. Si el puntero se queda quieto, no pasa nada.
   modo dispositivo «iPhone» de las herramientas de Chrome sí deforma porque su motor sigue siendo Chromium.
 - Cero costo en reposo: el filtro solo existe mientras la marca es visible y se retira al desvanecerse. La marca
   avanza a 60 pasos por segundo reales, así que dura lo mismo a cualquier tasa de cuadros.
+- **Estela de barco** (en todos los navegadores, también Safari): por donde pasa el puntero queda una **línea fina**
+  que marca la dirección del movimiento, **blanca con la pantalla oscura y negra con la clara** (y negra sobre la
+  introducción, que siempre es blanca). Es gruesa (~2 px) junto al puntero y se afina hasta casi desaparecer en la
+  cola, con opacidad máxima 0,45; se suaviza como una curva, mide como mucho ~260 px y se desvanece en ~0,8 s. Un clic
+  o toque quieto no la dibuja; al soltar el dedo o cambiar de pestaña se corta.
 - No se monta con «reducir movimiento», no bloquea clics ni el scroll con el dedo.
 
 Código: la huella en `src/lib/trailField.ts`, su conversión a mapa de deformación en `src/lib/rippleMap.ts`,
-la detección del motor en `src/lib/browserSupport.ts` y el componente en `src/components/effects/WaterRipple.tsx`.
+la estela de barco en `src/lib/wakeTrail.ts`, la detección del motor en `src/lib/browserSupport.ts` y el componente
+en `src/components/effects/WaterRipple.tsx`. **Ajustar la estela:** constantes `WAKE_*` en `wakeTrail.ts` (vida,
+largo, grosor, opacidad).
 
 **Ajustar:** `DEFAULT_DISPLACEMENT` en `rippleMap.ts` (`gain` = cuánto deforma, `maxPx` = tope absoluto) y
 `DEFAULT_DECAY` en `trailField.ts` (cuánto dura la marca). Los tests miden que, con la ganancia actual, entre celdas
